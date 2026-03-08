@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>メモミ - 超高性能メモアプリ</title>
+<title>メモミ</title>
 <style>
     /* 全体設定・モダンUI */
     :root {
