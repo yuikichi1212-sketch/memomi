@@ -1,302 +1,237 @@
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>メモミ</title>
 <style>
-    /* 全体設定・モダンホワイトUI */
+    /* 全体設定・スマホ向けモダンホワイトUI */
     :root {
         --primary-color: #ffd700;
         --bg-color: #ffffff;
-        --sidebar-bg: #fafafa;
-        --text-color: #333333;
-        --text-light: #888888;
-        --border-color: #eaeaea;
-        --error-color: #ff3b30;
-        --hover-bg: #f0f0f0;
+        --surface-color: #f8f8f8;
+        --text-color: #1c1c1e;
+        --text-light: #8e8e93;
+        --border-color: #e5e5ea;
+        --danger-color: #ff3b30;
     }
     body, html {
         margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         background-color: var(--bg-color); color: var(--text-color); overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
     }
     * { box-sizing: border-box; }
-    button { cursor: pointer; border: none; outline: none; transition: 0.2s; font-family: inherit; }
-    input { outline: none; border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 16px; width: 100%; margin-bottom: 12px; background: #fff; }
-    
-    /* ボタンデザイン (シンプルな黄色) */
-    .btn { background: var(--primary-color); color: #000; padding: 12px; border-radius: 8px; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
-    .btn-secondary { background: #fff; color: #333; border: 1px solid var(--border-color); }
-    .btn:hover { opacity: 0.8; }
-    
-    /* ログイン画面 */
-    #auth-screen {
-        display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
-        background: var(--bg-color); position: absolute; top: 0; left: 0; width: 100%; z-index: 100;
+    button { cursor: pointer; border: none; outline: none; background: transparent; font-family: inherit; }
+    input { outline: none; border: none; background: transparent; }
+
+    /* 共通ヘッダー */
+    .header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 16px 20px; border-bottom: 1px solid var(--border-color);
+        background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
+        position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 60px;
     }
-    .auth-box {
-        text-align: center; max-width: 320px; width: 100%; padding: 40px 30px; border-radius: 16px;
-        border: 1px solid var(--border-color); background: #fff;
+    .header-title { font-size: 22px; font-weight: 700; }
+    .header-btn { font-size: 16px; color: var(--primary-color); font-weight: 600; padding: 8px; color: #b89a00; /* 黄色の視認性調整 */ }
+    
+    /* 画面コンテナ */
+    .screen { display: none; height: 100%; padding-top: 60px; flex-direction: column; background: var(--surface-color); }
+    .screen.active { display: flex; animation: slideIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+
+    /* --- ホーム画面 (一覧) --- */
+    .search-bar-container { padding: 12px 20px; background: var(--surface-color); }
+    .search-input { width: 100%; background: #e3e3e8; padding: 10px 16px; border-radius: 10px; font-size: 16px; color: var(--text-color); }
+    
+    .note-list { flex: 1; overflow-y: auto; padding: 0 20px 100px 20px; }
+    .list-group-title { font-size: 13px; color: var(--text-light); margin: 24px 0 8px 4px; font-weight: bold; }
+    .note-item { 
+        background: #fff; padding: 16px; border-radius: 12px; margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03); display: flex; flex-direction: column;
+        border-left: 4px solid transparent; transition: 0.2s;
     }
-    .auth-icon { width: 80px; height: 80px; background: #000; border-radius: 16px; margin: 0 auto 20px; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; padding: 10px; }
-    .auth-icon div { background: var(--primary-color); height: 12px; width: 100%; border-radius: 6px; }
-    .auth-icon div:nth-child(n+2) { background: #333; }
-    .error-msg { color: var(--error-color); font-size: 14px; margin-bottom: 10px; display: none; }
-    .step { display: none; }
-    .step.active { display: block; animation: fadeIn 0.3s; }
+    .note-item:active { transform: scale(0.98); }
+    .note-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .note-preview { font-size: 14px; color: var(--text-light); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .note-meta { font-size: 12px; color: #aeaeb2; display: flex; justify-content: space-between; }
 
-    /* メイン画面 */
-    #app-screen { display: none; height: 100vh; display: flex; }
-    
-    /* サイドバー */
-    .sidebar { width: 320px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
-    .sidebar-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .sidebar-header h2 { margin: 0; font-size: 20px; font-weight: 600; }
-    .new-note-btn { background: var(--primary-color); color: #000; width: 32px; height: 32px; border-radius: 50%; font-size: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-    
-    .note-list-container { flex: 1; overflow-y: auto; padding: 0 10px 10px 10px; }
-    .list-group-title { font-size: 12px; color: var(--text-light); margin: 20px 10px 8px 10px; font-weight: bold; }
-    .note-item { padding: 12px 16px; border-radius: 8px; margin-bottom: 4px; cursor: pointer; background: transparent; transition: 0.1s; border-left: 4px solid transparent; }
-    .note-item:hover { background: var(--hover-bg); }
-    .note-item.active { background: var(--primary-color); color: #000; }
-    .note-item.active .note-item-date, .note-item.active .note-item-preview { color: #333; }
-    .note-item-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .note-item-preview { font-size: 13px; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .note-item-date { font-size: 12px; color: var(--text-light); margin-top: 4px; }
-    
-    .account-section { padding: 15px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: var(--sidebar-bg); cursor: pointer; }
-    .account-info { display: flex; flex-direction: column; }
-    .account-name { font-weight: bold; font-size: 14px; }
-    .account-label { font-size: 12px; color: var(--text-light); }
+    .fab {
+        position: fixed; bottom: 30px; right: 30px; width: 56px; height: 56px;
+        background: var(--primary-color); border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 4px 16px rgba(255, 215, 0, 0.4); z-index: 100;
+        font-size: 32px; font-weight: 300; color: #000;
+    }
 
-    /* メインエディタ */
-    .editor-container { flex: 1; display: flex; flex-direction: column; background: #fff; }
-    .toolbar { padding: 15px 30px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
-    .toolbar-btn { background: #fff; border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
-    .toolbar-btn:hover { background: var(--hover-bg); }
-    
-    .editor-area { flex: 1; padding: 40px 60px; font-size: 16px; line-height: 1.8; outline: none; overflow-y: auto; }
-    .editor-area img, .editor-area video { max-width: 100%; border-radius: 8px; margin: 10px 0; }
-    
-    /* 右クリックメニュー (コンテキストメニュー) */
-    #context-menu { display: none; position: absolute; background: #fff; border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; min-width: 160px; overflow: hidden; }
-    .context-item { padding: 12px 16px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
-    .context-item:hover { background: var(--hover-bg); }
-    .context-item.danger { color: var(--error-color); border-top: 1px solid var(--border-color); }
-    .color-picker { display: flex; gap: 5px; padding: 8px 16px; border-bottom: 1px solid var(--border-color); }
-    .color-circle { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 1px solid var(--border-color); }
+    /* --- エディタ画面 --- */
+    #editor-screen { background: #fff; }
+    .editor-area {
+        flex: 1; padding: 20px; font-size: 17px; line-height: 1.6;
+        outline: none; overflow-y: auto; color: var(--text-color); padding-bottom: 80px;
+    }
+    .editor-area img, .editor-area video { max-width: 100%; border-radius: 8px; margin: 12px 0; }
+    .editor-area blockquote { border-left: 3px solid var(--primary-color); margin: 0; padding-left: 10px; color: var(--text-light); }
 
-    /* モーダル (アカウント情報) */
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
-    .modal-content { background: #fff; padding: 40px; border-radius: 16px; width: 340px; text-align: center; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-    .modal-content h3 { margin-top: 0; }
+    /* ボトムツールバー (多機能リッチテキスト) */
+    .editor-toolbar {
+        position: fixed; bottom: 0; left: 0; right: 0; height: 50px;
+        background: #f0f0f5; border-top: 1px solid var(--border-color);
+        display: flex; align-items: center; padding: 0 10px; gap: 15px;
+        overflow-x: auto; white-space: nowrap; z-index: 60;
+    }
+    .editor-toolbar::-webkit-scrollbar { display: none; }
+    .tool-btn { font-size: 16px; font-weight: 600; color: #333; padding: 8px; border-radius: 6px; }
+    .tool-btn:active { background: #d1d1d6; }
+    .tool-sep { width: 1px; height: 24px; background: #c7c7cc; }
 
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    /* --- 詳細メニュー (ボトムシート) --- */
+    .overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 200; }
+    .bottom-sheet {
+        position: fixed; bottom: -100%; left: 0; right: 0; background: #fff;
+        border-radius: 20px 20px 0 0; padding: 24px 20px; z-index: 201;
+        transition: bottom 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    .bottom-sheet.open { bottom: 0; }
+    .sheet-handle { width: 40px; height: 5px; background: #d1d1d6; border-radius: 3px; margin: 0 auto 20px; }
+    
+    .menu-item {
+        padding: 16px 0; font-size: 17px; display: flex; justify-content: space-between;
+        align-items: center; border-bottom: 1px solid var(--border-color); cursor: pointer;
+    }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item.danger { color: var(--danger-color); }
+    
+    .color-palette { display: flex; gap: 12px; padding: 16px 0; overflow-x: auto; border-bottom: 1px solid var(--border-color); }
+    .color-circle { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #d1d1d6; flex-shrink: 0; }
+    .color-circle.selected { border: 2px solid var(--primary-color); }
+
+    .meta-info { font-size: 13px; color: var(--text-light); text-align: center; margin-top: 20px; line-height: 1.8; }
+
+    @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 </style>
 </head>
 <body>
 
-<div id="auth-screen">
-    <div class="auth-box">
-        <div class="auth-icon">
-            <div></div><div></div><div></div><div></div>
-        </div>
-        <h2>ゆいきちアカウント</h2>
-        
-        <div id="step-choice" class="step active">
-            <button class="btn" onclick="goToStep('step-id', 'login')">ログイン</button>
-            <button class="btn btn-secondary" onclick="goToStep('step-id', 'register')">新規作成</button>
+<div id="home-screen" class="screen active">
+    <div class="header">
+        <div class="header-title">メモミ</div>
+        <button class="header-btn" onclick="document.getElementById('file-import').click()">読込</button>
+        <input type="file" id="file-import" style="display: none;" accept="*/*" onchange="handleFileUpload(event, true)">
+    </div>
+    
+    <div class="search-bar-container">
+        <input type="text" class="search-input" id="search-input" placeholder="メモを検索" oninput="filterNotes()">
+    </div>
+
+    <div class="note-list" id="note-list">
         </div>
 
-        <div id="step-id" class="step">
-            <p id="id-title" style="font-size: 14px; margin-bottom: 10px;">アカウント名を入力</p>
-            <input type="text" id="account-id" placeholder="5文字以上">
-            <p class="error-msg" id="id-error">5文字以上で入力してください</p>
-            <button class="btn" onclick="validateId()">次へ</button>
-            <button class="btn btn-secondary" onclick="goToStep('step-choice')">戻る</button>
-        </div>
+    <button class="fab" onclick="createNewNote()">+</button>
+</div>
 
-        <div id="step-pass" class="step">
-            <p style="font-size: 14px; margin-bottom: 10px;">パスワードを入力</p>
-            <input type="password" id="account-pass" placeholder="英数字を含む5文字以上">
-            <p class="error-msg" id="pass-error">パスワードが間違っています</p>
-            <button class="btn" onclick="submitAuth()">完了</button>
-            <button class="btn btn-secondary" onclick="goToStep('step-id')">戻る</button>
+<div id="editor-screen" class="screen">
+    <div class="header">
+        <button class="header-btn" onclick="backToHome()">戻る</button>
+        <div style="display: flex; gap: 10px;">
+            <button class="header-btn" onclick="systemShare()">共有</button>
+            <button class="header-btn" onclick="openMenu()">詳細</button>
         </div>
+    </div>
+
+    <div class="editor-area" id="editor-area" contenteditable="true" oninput="saveCurrentNote()"></div>
+
+    <div class="editor-toolbar">
+        <button class="tool-btn" onclick="formatText('bold')" style="font-weight: 900;">B</button>
+        <button class="tool-btn" onclick="formatText('italic')" style="font-style: italic;">I</button>
+        <button class="tool-btn" onclick="formatText('underline')" style="text-decoration: underline;">U</button>
+        <button class="tool-btn" onclick="formatText('strikeThrough')" style="text-decoration: line-through;">S</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" onclick="formatText('insertUnorderedList')">リスト</button>
+        <button class="tool-btn" onclick="formatText('insertOrderedList')">番号</button>
+        <button class="tool-btn" onclick="formatText('formatBlock', 'BLOCKQUOTE')">引用</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" onclick="document.getElementById('file-upload').click()">写真/動画</button>
+        <input type="file" id="file-upload" style="display: none;" accept="image/*,video/*" onchange="handleFileUpload(event, false)">
+        <div class="tool-sep"></div>
+        <button class="tool-btn" onclick="applyTextColor()">文字色</button>
+        <button class="tool-btn" onclick="applyHighlight()">背景色</button>
     </div>
 </div>
 
-<div id="app-screen">
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h2>メモ</h2>
-            <button class="new-note-btn" onclick="createNewNote()">+</button>
+<div class="overlay" id="menu-overlay" onclick="closeMenu()"></div>
+<div class="bottom-sheet" id="bottom-sheet">
+    <div class="sheet-handle"></div>
+    
+    <div class="color-palette" id="color-palette">
         </div>
-        <div class="note-list-container" id="note-list-container">
-            </div>
-        <div class="account-section" onclick="showAccountInfo()">
-            <div class="account-info">
-                <span class="account-name" id="display-account-name">@user</span>
-                <span class="account-label">ゆいきちアカウント</span>
-            </div>
-            <span style="color: var(--text-light); font-size: 20px;">...</span>
-        </div>
+
+    <div class="menu-item" onclick="togglePin()">
+        <span id="pin-text">ピン留めする</span>
+    </div>
+    <div class="menu-item danger" onclick="deleteNote()">
+        <span>削除</span>
     </div>
 
-    <div class="editor-container">
-        <div class="toolbar">
-            <button class="toolbar-btn" onclick="systemShare()">共有</button>
-            <button class="toolbar-btn" onclick="document.getElementById('file-upload').click()">ファイル・画像を追加</button>
-            <input type="file" id="file-upload" style="display: none;" accept="*/*" onchange="handleFileUpload(event)">
+    <div class="meta-info" id="meta-info">
         </div>
-        <div class="editor-area" id="editor-area" contenteditable="true" oninput="saveCurrentNote()"></div>
-    </div>
-</div>
-
-<div id="context-menu">
-    <div class="color-picker">
-        <div class="color-circle" style="background: transparent;" onclick="changeColor('')"></div>
-        <div class="color-circle" style="background: #ffcccc;" onclick="changeColor('#ffcccc')"></div>
-        <div class="color-circle" style="background: #ccffcc;" onclick="changeColor('#ccffcc')"></div>
-        <div class="color-circle" style="background: #ccccff;" onclick="changeColor('#ccccff')"></div>
-    </div>
-    <div class="context-item" onclick="togglePin()" id="menu-pin-text">ピン留め</div>
-    <div class="context-item danger" onclick="deleteNoteAction()">削除</div>
-</div>
-
-<div class="modal-overlay" id="account-modal">
-    <div class="modal-content">
-        <h3>アカウント情報</h3>
-        <p style="font-size: 14px; color: var(--text-light); text-align: left; margin-bottom: 5px;">アカウント名</p>
-        <p style="font-weight: bold; font-size: 18px; text-align: left; margin-top: 0;" id="info-id"></p>
-        <p style="font-size: 14px; color: var(--text-light); text-align: left; margin-bottom: 5px;">パスワード</p>
-        <p style="font-weight: bold; font-size: 18px; text-align: left; margin-top: 0;" id="info-pass"></p>
-        <button class="btn" style="background: var(--error-color); color: #fff; margin-top: 20px;" onclick="logout()">ログアウト</button>
-        <button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
-    </div>
 </div>
 
 <script>
-    /* 状態管理 */
-    let authMode = ''; 
-    let currentId = '';
-    let currentUser = null; 
-    let notes = []; 
-    let currentNoteId = null; 
-    let contextMenuTargetId = null;
+    /* --- データと状態 --- */
+    let notes = JSON.parse(localStorage.getItem('memomi_notes')) || [];
+    let currentNoteId = null;
+    
+    // カラーパレット定義 (モダンで淡い色)
+    const colors = [
+        { hex: '', name: '標準' },
+        { hex: '#fff9c4', name: '黄' },
+        { hex: '#f8bbd0', name: '赤' },
+        { hex: '#c8e6c9', name: '緑' },
+        { hex: '#bbdefb', name: '青' },
+        { hex: '#e1bee7', name: '紫' },
+        { hex: '#ffcc80', name: '橙' },
+        { hex: '#cfd8dc', name: '灰' }
+    ];
 
-    /* --- 認証ロジック --- */
-    function goToStep(stepId, mode = null) {
-        if(mode) authMode = mode;
-        document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
-        document.getElementById(stepId).classList.add('active');
-        hideErrors();
-    }
-    function hideErrors() {
-        document.getElementById('id-error').style.display = 'none';
-        document.getElementById('pass-error').style.display = 'none';
-    }
-    function validateId() {
-        const idInput = document.getElementById('account-id').value.trim();
-        if(idInput.length < 5) {
-            document.getElementById('id-error').innerText = "5文字以上で入力してください";
-            document.getElementById('id-error').style.display = 'block';
-            return;
-        }
-        const accounts = JSON.parse(localStorage.getItem('yuikichi_accounts')) || {};
-        if (authMode === 'register' && accounts[idInput]) {
-            document.getElementById('id-error').innerText = "既に存在します";
-            document.getElementById('id-error').style.display = 'block';
-            return;
-        }
-        if (authMode === 'login' && !accounts[idInput]) {
-            document.getElementById('id-error').innerText = "見つかりません";
-            document.getElementById('id-error').style.display = 'block';
-            return;
-        }
-        currentId = idInput;
-        goToStep('step-pass');
-    }
-    function submitAuth() {
-        const passInput = document.getElementById('account-pass').value;
-        const passError = document.getElementById('pass-error');
-        if(authMode === 'register') {
-            const regex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{5,}$/;
-            if(!regex.test(passInput)) {
-                passError.innerText = "文字と数字を含む5桁以上にしてください";
-                passError.style.display = 'block';
-                return;
-            }
-            const accounts = JSON.parse(localStorage.getItem('yuikichi_accounts')) || {};
-            accounts[currentId] = { password: passInput, notes: [] };
-            localStorage.setItem('yuikichi_accounts', JSON.stringify(accounts));
-            loginSuccess(currentId);
-        } else {
-            const accounts = JSON.parse(localStorage.getItem('yuikichi_accounts')) || {};
-            if(accounts[currentId].password !== passInput) {
-                passError.innerText = "パスワードが間違っています";
-                passError.style.display = 'block';
-                return;
-            }
-            loginSuccess(currentId);
-        }
-    }
-    function loginSuccess(id) {
-        currentUser = id;
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('app-screen').style.display = 'flex';
-        document.getElementById('display-account-name').innerText = '@' + id;
-        loadNotes();
-    }
-    function logout() {
-        currentUser = null; currentNoteId = null;
-        document.getElementById('editor-area').innerHTML = '';
-        document.getElementById('app-screen').style.display = 'none';
-        document.getElementById('auth-screen').style.display = 'flex';
-        document.getElementById('account-id').value = '';
-        document.getElementById('account-pass').value = '';
-        closeModal(); goToStep('step-choice');
-    }
-    function showAccountInfo() {
-        const accounts = JSON.parse(localStorage.getItem('yuikichi_accounts'));
-        document.getElementById('info-id').innerText = currentUser;
-        document.getElementById('info-pass').innerText = accounts[currentUser].password;
-        document.getElementById('account-modal').style.display = 'flex';
-    }
-    function closeModal() { document.getElementById('account-modal').style.display = 'none'; }
-
-    /* --- メモロジック --- */
-    function loadNotes() {
-        const accounts = JSON.parse(localStorage.getItem('yuikichi_accounts'));
-        notes = accounts[currentUser].notes || [];
+    // 初期化
+    window.onload = () => {
         renderNoteList();
-        if(notes.length > 0) {
-            selectNote(notes[0].id);
-        } else {
-            createNewNote();
-        }
-    }
-    function saveNotesToDB() {
-        const accounts = JSON.parse(localStorage.getItem('yuikichi_accounts'));
-        accounts[currentUser].notes = notes;
-        localStorage.setItem('yuikichi_accounts', JSON.stringify(accounts));
+        generateColorPalette();
+    };
+
+    /* --- 画面遷移 --- */
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
     }
 
-    // HTMLからプレーンテキストを抽出してタイトルとプレビューを分ける
+    function backToHome() {
+        saveCurrentNote();
+        currentNoteId = null;
+        document.getElementById('search-input').value = '';
+        renderNoteList();
+        showScreen('home-screen');
+    }
+
+    /* --- メモのロジック --- */
+    function saveToDB() {
+        localStorage.setItem('memomi_notes', JSON.stringify(notes));
+    }
+
     function extractTextData(htmlContent) {
         const temp = document.createElement('div');
         temp.innerHTML = htmlContent;
         const text = temp.innerText.trim();
         const lines = text.split('\n').filter(line => line.trim() !== '');
         const title = lines.length > 0 ? lines[0] : '新規メモ';
-        const preview = lines.length > 1 ? lines.slice(1).join(' ').substring(0, 30) : '追加テキストなし';
-        return { title, preview };
+        const preview = lines.length > 1 ? lines.slice(1).join(' ').substring(0, 40) : '追加テキストなし';
+        const charCount = text.length;
+        return { title, preview, charCount };
     }
 
-    // 日付カテゴリ判定
     function getDateCategory(timestamp) {
         const now = new Date();
         const date = new Date(timestamp);
-        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor((now.setHours(0,0,0,0) - date.setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
         if (diffDays === 0) return '今日';
         if (diffDays === 1) return '昨日';
         if (diffDays <= 7) return '過去7日間';
@@ -304,14 +239,22 @@
         return date.getFullYear() + '年';
     }
 
-    function renderNoteList() {
-        const container = document.getElementById('note-list-container');
+    function renderNoteList(filterText = '') {
+        const container = document.getElementById('note-list');
         container.innerHTML = '';
         
-        notes.sort((a, b) => b.updatedAt - a.updatedAt);
+        // 検索フィルタリング
+        const filteredNotes = notes.filter(note => {
+            if (!filterText) return true;
+            const temp = document.createElement('div');
+            temp.innerHTML = note.content;
+            return temp.innerText.toLowerCase().includes(filterText.toLowerCase());
+        });
+
+        filteredNotes.sort((a, b) => b.updatedAt - a.updatedAt);
 
         const groups = { 'ピン留め': [] };
-        notes.forEach(note => {
+        filteredNotes.forEach(note => {
             if (note.isPinned) {
                 groups['ピン留め'].push(note);
             } else {
@@ -331,24 +274,30 @@
 
             groupNotes.forEach(note => {
                 const { title, preview } = extractTextData(note.content);
-                const dateStr = new Date(note.updatedAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                const dateStr = new Date(note.updatedAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
 
                 const div = document.createElement('div');
-                div.className = `note-item ${note.id === currentNoteId ? 'active' : ''}`;
-                if(note.color && note.id !== currentNoteId) div.style.backgroundColor = note.color;
-                if(note.isPinned) div.style.borderLeftColor = 'var(--text-color)';
+                div.className = 'note-item';
+                if(note.color) div.style.backgroundColor = note.color;
+                if(note.isPinned) div.style.borderLeftColor = '#ffb300';
                 
-                div.onclick = () => selectNote(note.id);
-                div.oncontextmenu = (e) => showContextMenu(e, note.id);
+                div.onclick = () => openNote(note.id);
 
                 div.innerHTML = `
-                    <div class="note-item-title">${title}</div>
-                    <div class="note-item-preview">${preview}</div>
-                    <div class="note-item-date">${dateStr}</div>
+                    <div class="note-title">${title}</div>
+                    <div class="note-preview">${preview}</div>
+                    <div class="note-meta">
+                        <span>${dateStr}</span>
+                    </div>
                 `;
                 container.appendChild(div);
             });
         }
+    }
+
+    function filterNotes() {
+        const text = document.getElementById('search-input').value;
+        renderNoteList(text);
     }
 
     function createNewNote() {
@@ -356,22 +305,24 @@
             id: Date.now().toString(),
             content: '',
             updatedAt: Date.now(),
+            createdAt: Date.now(),
             isPinned: false,
             color: ''
         };
         notes.unshift(newNote);
-        saveNotesToDB();
-        renderNoteList();
-        selectNote(newNote.id);
+        saveToDB();
+        openNote(newNote.id);
     }
 
-    function selectNote(id) {
+    function openNote(id) {
         currentNoteId = id;
         const note = notes.find(n => n.id === id);
         const editor = document.getElementById('editor-area');
         editor.innerHTML = note ? note.content : '';
-        editor.focus();
-        renderNoteList();
+        editor.style.backgroundColor = note.color || '#fff';
+        showScreen('editor-screen');
+        // スマホでキーボードを出すためにフォーカス
+        setTimeout(() => editor.focus(), 300);
     }
 
     function saveCurrentNote() {
@@ -380,63 +331,40 @@
         if(noteIndex > -1) {
             notes[noteIndex].content = document.getElementById('editor-area').innerHTML;
             notes[noteIndex].updatedAt = Date.now();
-            saveNotesToDB();
-            renderNoteList();
+            saveToDB();
         }
     }
 
-    /* --- コンテキストメニュー (右クリック) --- */
-    function showContextMenu(e, noteId) {
-        e.preventDefault();
-        contextMenuTargetId = noteId;
-        const menu = document.getElementById('context-menu');
-        const note = notes.find(n => n.id === noteId);
-        
-        document.getElementById('menu-pin-text').innerText = note.isPinned ? 'ピン留め解除' : 'ピン留め';
-        
-        menu.style.display = 'block';
-        menu.style.left = `${e.pageX}px`;
-        menu.style.top = `${e.pageY}px`;
+    /* --- リッチテキスト機能 --- */
+    function formatText(command, value = null) {
+        document.execCommand(command, false, value);
+        document.getElementById('editor-area').focus();
+        saveCurrentNote();
     }
 
-    document.addEventListener('click', () => {
-        document.getElementById('context-menu').style.display = 'none';
-    });
-
-    function togglePin() {
-        if(!contextMenuTargetId) return;
-        const note = notes.find(n => n.id === contextMenuTargetId);
-        note.isPinned = !note.isPinned;
-        saveNotesToDB(); renderNoteList();
+    // 文字色（簡易的に赤を指定、応用でパレット展開可能）
+    function applyTextColor() {
+        formatText('foreColor', '#ff3b30'); 
+    }
+    // 文字背景色（マーカー）
+    function applyHighlight() {
+        formatText('hiliteColor', '#fff59d');
     }
 
-    function deleteNoteAction() {
-        if(!contextMenuTargetId) return;
-        notes = notes.filter(n => n.id !== contextMenuTargetId);
-        saveNotesToDB();
-        if(currentNoteId === contextMenuTargetId) {
-            currentNoteId = null;
-            document.getElementById('editor-area').innerHTML = '';
-            if(notes.length > 0) selectNote(notes[0].id);
-        }
-        renderNoteList();
-    }
-
-    function changeColor(colorHex) {
-        if(!contextMenuTargetId) return;
-        const note = notes.find(n => n.id === contextMenuTargetId);
-        note.color = colorHex;
-        saveNotesToDB(); renderNoteList();
-    }
-
-    /* --- 各種ファイル・メディア対応 --- */
-    function handleFileUpload(event) {
+    /* --- ファイル・メディア対応 --- */
+    function handleFileUpload(event, isImportToNew) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = function(e) {
             const result = e.target.result;
+            
+            if (isImportToNew) {
+                // ホーム画面の「読込」から新しいメモを作る場合
+                createNewNote();
+            }
+
             const editor = document.getElementById('editor-area');
             editor.focus();
 
@@ -445,41 +373,116 @@
             } else if (file.type.startsWith('video/')) {
                 document.execCommand('insertHTML', false, `<br><video src="${result}" controls></video><br>`);
             } else {
-                // テキスト系ファイル
                 const textContent = result.replace(/\n/g, '<br>');
-                document.execCommand('insertHTML', false, `<br>--- ファイルプレビュー開始 ---<br>${textContent}<br>--- 終了 ---<br>`);
+                document.execCommand('insertHTML', false, `<div>${textContent}</div>`);
             }
             saveCurrentNote();
         };
 
         if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
-            reader.readAsDataURL(file); // 画像・動画はBase64で埋め込み
+            reader.readAsDataURL(file); 
         } else {
-            reader.readAsText(file); // その他はテキストとして読み込み
+            reader.readAsText(file); 
         }
         event.target.value = '';
+    }
+
+    /* --- 詳細メニュー (BottomSheet) 機能 --- */
+    function openMenu() {
+        const note = notes.find(n => n.id === currentNoteId);
+        if(!note) return;
+
+        // ピン状態更新
+        document.getElementById('pin-text').innerText = note.isPinned ? 'ピン留めを解除' : 'ピン留めする';
+
+        // メタ情報生成 (隠れた多機能: 文字数カウント等)
+        const { charCount } = extractTextData(note.content);
+        const created = new Date(note.createdAt).toLocaleString('ja-JP');
+        const updated = new Date(note.updatedAt).toLocaleString('ja-JP');
+        document.getElementById('meta-info').innerHTML = `
+            文字数: ${charCount} 文字<br>
+            作成: ${created}<br>
+            更新: ${updated}
+        `;
+
+        // カラーパレットの選択状態更新
+        const palette = document.getElementById('color-palette');
+        Array.from(palette.children).forEach(child => {
+            if(child.dataset.color === (note.color || '')) {
+                child.classList.add('selected');
+            } else {
+                child.classList.remove('selected');
+            }
+        });
+
+        document.getElementById('menu-overlay').style.display = 'block';
+        // 少し遅延させてアニメーションを適用
+        setTimeout(() => {
+            document.getElementById('bottom-sheet').classList.add('open');
+        }, 10);
+    }
+
+    function closeMenu() {
+        document.getElementById('bottom-sheet').classList.remove('open');
+        setTimeout(() => {
+            document.getElementById('menu-overlay').style.display = 'none';
+        }, 300);
+    }
+
+    function togglePin() {
+        const note = notes.find(n => n.id === currentNoteId);
+        note.isPinned = !note.isPinned;
+        saveToDB();
+        closeMenu();
+    }
+
+    function deleteNote() {
+        if(confirm('このメモを削除しますか？')) {
+            notes = notes.filter(n => n.id !== currentNoteId);
+            saveToDB();
+            closeMenu();
+            backToHome();
+        }
+    }
+
+    function generateColorPalette() {
+        const container = document.getElementById('color-palette');
+        colors.forEach(c => {
+            const div = document.createElement('div');
+            div.className = 'color-circle';
+            div.style.backgroundColor = c.hex || '#fff';
+            div.dataset.color = c.hex;
+            div.onclick = () => changeNoteColor(c.hex, div);
+            container.appendChild(div);
+        });
+    }
+
+    function changeNoteColor(hex, element) {
+        const note = notes.find(n => n.id === currentNoteId);
+        note.color = hex;
+        document.getElementById('editor-area').style.backgroundColor = hex || '#fff';
+        saveToDB();
+        
+        // 選択状態の更新
+        Array.from(document.getElementById('color-palette').children).forEach(c => c.classList.remove('selected'));
+        element.classList.add('selected');
     }
 
     /* --- システム共有 --- */
     function systemShare() {
         if(!currentNoteId) return;
         const note = notes.find(n => n.id === currentNoteId);
-        const { title, preview } = extractTextData(note.content);
+        const { title } = extractTextData(note.content);
+        
+        const temp = document.createElement('div');
+        temp.innerHTML = note.content;
+        const plainText = temp.innerText;
 
         if (navigator.share) {
-            navigator.share({
-                title: title,
-                text: tempTextExtract(note.content)
-            }).catch(console.error);
+            navigator.share({ title: title, text: plainText }).catch(console.error);
         } else {
-            alert('お使いのブラウザはシステム共有機能に対応していません。');
+            alert('お使いの環境は共有機能に対応していません。');
         }
-    }
-    
-    function tempTextExtract(html) {
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
-        return temp.innerText;
     }
 </script>
 </body>
